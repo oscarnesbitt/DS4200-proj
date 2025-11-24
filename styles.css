@@ -68,6 +68,10 @@
     margin-bottom: 50px;
   }
   
+  .section_small {
+    margin-bottom: -100px;
+  }
+  
   .viz-placeholder {
     background: linear-gradient(135deg, #e0f2fe 0%, #d1fae5 100%);
     border: 2px dashed #2563eb;
@@ -150,7 +154,10 @@
     text-align: center;
     color: #6b7280;
   }
-  
+
+
+
+
   @media (max-width: 768px) {
     .flex-container,
     .flex-container.reverse {
@@ -165,3 +172,4 @@
       font-size: 1.5em;
     }
   }
+  
