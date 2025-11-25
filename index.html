@@ -131,20 +131,152 @@
   </section>
 
   <section class="section">
-    <h2>Visualization #5</h2>
-    <h3>Comparative Analysis</h3>
-    
-    <div class="flex-container">
-      <div class="flex-viz">
-        <div class="viz-placeholder">
-          [Visualization #5 Placeholder - Insert your visualization here]
-        </div>
-      </div>
-      <div class="flex-text">
-        <p>This comparative visualization facilitates direct comparisons between different observations or groups within the dataset. By presenting variables side by side, it becomes easier to identify similarities and differences across multiple dimensions. The comparison highlights which factors vary most significantly between groups and which remain relatively stable. This type of analysis is particularly valuable for understanding how different contexts or conditions affect the variables of interest and for identifying best practices or areas requiring attention.</p>
-      </div>
+  <h2>Visualization #5</h2>
+  <h3>Correlation and Relationships</h3>
+  
+  <div class="flex-container reverse">
+    <div class="flex-viz" style="display:flex; flex-direction:column; align-items:center;">
+      <div id="coxcomb-container"></div>
+      <select id="view-mode" style="margin-top:10px;">
+        <option value="proportional">Proportional View</option>
+        <option value="counts">Actual Counts</option>
+      </select>
     </div>
-  </section>
+    <div class="flex-text">
+      <p>This coxcomb plot of income distribution by education level shows a clear pattern between an individual’s level of education and their income level. As we can see from the color-coded sections, the lowest level of education in the dataset (High-School Dropout) is associated with the lowest proportion of income above $50k/year (5.6%). With each subsequent level of higher education, the proportion of individuals in that section who earn over $50k each year increases. By contrast to the High-School Dropout level, 41.2% of individuals with a Bachelor's degree make over $50k/year, and 74.4% of individuals at the PhD level make over $50k/year. This means the share of individuals making over $50k/year is more than 13x greater at the PhD level than at the High-School dropout level, illustrating a clear trend that higher education levels are correlated with higher incomes.</p>
+      <p>The lowest 5 out of 8 education levels have over 50% of individuals earning under 50k, while only the top 3 education levels (Master’s Degree, Professional School, and PhD) have more than 50% of individuals earning over $50k. This can be seen by selecting the ‘Sort sectors by:’ dropdown menu and selecting ‘Share of >50k’. Overall, this coxcomb visualization displays how education level has a significant impact on the outcome of an individual’s income, with higher education consistently increasing an individual’s likelihood of earning over $50k/year. </p>
+    </div>
+  </div>
+</section>
+
+<script>
+const data = [
+  { EDU: "HS_dropout", over50k: 66, under50k: 1123 },
+  { EDU: "hs_grad", over50k: 557, under50k: 2700 },
+  { EDU: "college_dropout", over50k: 423, under50k: 1799 },
+  { EDU: "associate", over50k: 212, under50k: 587 },
+  { EDU: "bachelor", over50k: 708, under50k: 1010 },
+  { EDU: "masters", over50k: 313, under50k: 224 },
+  { EDU: "prof_school", over50k: 120, under50k: 37 },
+  { EDU: "PhD", over50k: 90, under50k: 31 },
+];
+
+const coxwidth = 500, coxheight = 500;
+const innerRadius = 50, maxOuterRadius = 200;
+const colors = { ">50k": "#2563eb", "<=50k": "#93c5fd" };
+
+const Coxsvg = d3.select("#coxcomb-container")
+  .append("svg")
+  .attr("width", coxwidth)
+  .attr("height", coxheight)
+  .append("g")
+  .attr("transform", `translate(${coxwidth/2}, ${coxheight/2 + 20})`);
+
+const tooltip = d3.select("body")
+  .append("div")
+  .style("position", "absolute")
+  .style("background", "#fff")
+  .style("padding", "6px 10px")
+  .style("border", "1px solid #aaa")
+  .style("border-radius", "4px")
+  .style("pointer-events", "none")
+  .style("opacity", 0);
+
+const arcGenerator = d3.arc();
+const pie = d3.pie().value(1).sort(null);
+
+function render(viewMode="proportional") {
+  Coxsvg.selectAll("*").remove();
+
+  Coxsvg.append("text")
+    .attr("x", 0)
+    .attr("y", -coxheight/2 - 7.5)
+    .attr("text-anchor", "middle")
+    .style("font-size", "16px")
+    .style("font-weight", "bold")
+    .attr("fill", "green")
+    .text("Coxcomb Plot: Education vs Income");
+
+  const arcs = pie(data);
+  const maxCount = d3.max(data, d => d.over50k + d.under50k);
+  const scaleCounts = maxOuterRadius / maxCount;
+
+  arcs.forEach(d => {
+    let over = d.data.over50k;
+    let under = d.data.under50k;
+
+    if(viewMode === "proportional") {
+      const total = over + under;
+      over = (over / total) * maxOuterRadius;
+      under = (under / total) * maxOuterRadius;
+    } else {
+      over *= scaleCounts;
+      under *= scaleCounts;
+    }
+
+    // under 50k values
+    Coxsvg.append("path")
+      .attr("d", arcGenerator({ innerRadius: innerRadius, outerRadius: innerRadius + under, startAngle: d.startAngle, endAngle: d.endAngle }))
+      .attr("fill", colors["<=50k"])
+      .attr("stroke", "#fff")
+      .attr("stroke-width", 1)
+      .on("mouseover", (event) => showTooltip(event, d))
+      .on("mousemove", moveTooltip)
+      .on("mouseout", hideTooltip);
+
+    // over 50k values
+    Coxsvg.append("path")
+      .attr("d", arcGenerator({ innerRadius: innerRadius + under, outerRadius: innerRadius + under + over, startAngle: d.startAngle, endAngle: d.endAngle }))
+      .attr("fill", colors[">50k"])
+      .attr("stroke", "#fff")
+      .attr("stroke-width", 1)
+      .on("mouseover", (event) => showTooltip(event, d))
+      .on("mousemove", moveTooltip)
+      .on("mouseout", hideTooltip);
+
+    // edu labels
+    const labelRadius = innerRadius + under + over / 2 - 25; 
+    const angle = (d.startAngle + d.endAngle) / 2; 
+    Coxsvg.append("text")
+    .attr("x", labelRadius * Math.sin(angle))
+    .attr("y", -labelRadius * Math.cos(angle)) 
+    .attr("text-anchor", "middle")
+    .attr("alignment-baseline", "middle")
+    .style("font-size", "12px")
+    .style("font-weight", "bold")
+    .attr("fill", "white")
+    .style("stroke", "black")
+    .style("stroke-width", ".85px")
+    .text(d.data.EDU);
+  });
+}
+
+
+function showTooltip(event, d) {
+  const total = d.data.over50k + d.data.under50k;
+  tooltip.html(`<strong>${d.data.EDU}</strong><br>
+    >50k: ${d.data.over50k} (${((d.data.over50k/total)*100).toFixed(1)}%)<br>
+    <=50k: ${d.data.under50k} (${((d.data.under50k/total)*100).toFixed(1)}%)`)
+    .style("opacity", 1);
+}
+
+function moveTooltip(event) {
+  tooltip.style("left", (event.pageX + 10) + "px")
+         .style("top", (event.pageY - 30) + "px");
+}
+
+function hideTooltip() {
+  tooltip.style("opacity", 0);
+}
+
+// render
+render();
+
+d3.select("#view-mode").on("change", function() {
+  render(this.value);
+});
+</script>
+
 
   <section class="section">
     <h2>Visualization #6</h2>
